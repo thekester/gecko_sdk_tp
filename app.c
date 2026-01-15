@@ -41,15 +41,25 @@ sl_zigbee_event_set_active;
 
 emberAfStackStatusCallback;*/
 
+
 extern const sl_led_t sl_led_led0; // LED_RED :contentReference[oaicite:7]{index=7}
 extern const sl_led_t sl_led_led1; // Souvent LED verte
 
 extern const sl_button_t sl_button_btn0;
 extern const sl_button_t sl_button_btn1;
 
+static sl_zigbee_event_t g_app_event;
+static sl_zigbee_event_t g_app_isr_event;
+
+//check LedBlinking
+
+
+// ---------- Etat applicatif ----------
+static volatile bool g_toggle_requested = false;
+static volatile bool g_commission_requested = false;
+
 
 //extern const sl_led_pwm_rgb_t sl_led_pwm_rgb; // Exemple: instance RGB
-
 
 
 /** @brief Complete network steering.
@@ -88,6 +98,11 @@ void emberAfRadioNeedsCalibratingCallback(void)
 
 void emberAfMainInitCallback(void)
 {
+
+  sl_zigbee_af_event_init(&g_app_event, my_event_handler);
+  sl_zigbee_af_isr_event_init(&my_isr_event, my_isr_event_handler);
+  sl_zigbee_af_event_set_active(&g_app_event);
+
   //init led
   sl_led_init(&sl_led_led0);
   sl_led_init(&sl_led_led1);
@@ -95,8 +110,8 @@ void emberAfMainInitCallback(void)
   //sl_led_turn_on(&sl_led_led0);
   //sl_led_turn_on(&sl_led_led1);
 
-  //sl_led_turn_off(&sl_led_led0);
-  //sl_led_turn_off(&sl_led_led1);
+  sl_led_turn_off(&sl_led_led0);
+  sl_led_turn_off(&sl_led_led1);
 
 
   sl_button_init(&sl_button_btn0);
@@ -106,27 +121,38 @@ void emberAfMainInitCallback(void)
 
 }
 
+
+// ---------- Helpers LEDs ----------
+static void set_pairing_led(bool pairing)
+{
+  // LED rouge: appairage en cours
+  if (pairing) {
+    sl_led_turn_on(&sl_led_led0);
+  } else {
+    sl_led_turn_off(&sl_led_led0);
+  }
+}
+
+
 void sl_button_on_change(const sl_button_t *handle)
 {
   if (!sl_button_get_state(handle)) {
      return; // on ne traite que l'appui (pas le relâchement)
    }
 
-  // Adapte les handles: souvent BTN0 = commissioning, BTN1 = On/Off
-  /*if (handle == &sl_button_btn0) {
-   g_commission_requested = true;
-   sl_zigbee_event_set_active(&g_app_event);
-  } else if (handle == &sl_button_btn1) {
-   g_toggle_requested = true;
-   sl_zigbee_event_set_active(&g_app_event);
-  }*/
-
-
    // Adapte les handles: souvent BTN0 = commissioning, BTN1 = On/Off
-   if (handle == &sl_button_btn1) {
-       sl_led_turn_on(&sl_led_led0);
-       sl_led_turn_on(&sl_led_led1);
+   if (handle == &sl_button_btn0) {
+       g_commission_requested = true;
+       sl_zigbee_event_set_active(&g_app_event);
+       while(1){
+           sl_led_toggle(&sl_led_led0);
+           for(volatile int i=0; i<1000000;i++); //simple delay
+       }
    }
+   else if (handle == &sl_button_btn1) {
+      g_toggle_requested = true;
+      sl_zigbee_event_set_active(&g_app_event);
+     }
 }
 
 // Suivi réseau: LEDs rouge/verte
