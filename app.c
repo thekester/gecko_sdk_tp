@@ -105,15 +105,22 @@ void emberAfPostAttributeChangeCallback(uint8_t endpoint,
                                             sizeof(onOff));
 
     if (readStatus == EMBER_ZCL_STATUS_SUCCESS) {
-      // use onOff to control hardware, e.g. LEDs
-      // GPIO_PinOutSet / GPIO_PinOutClear or board-specific LED API
-        sl_simple_rgb_pwm_led_turn_on(&sl_simple_rgb_pwm_led_rgb_led0);
-        //https://docs.silabs.com/gecko-platform/latest/platform-driver/simple-rgb-pwm-led
-        uint16_t red = 65535; // max red
-        uint16_t green = 0; // no green
-        uint16_t blue = 65535; // max blue
-        sl_led_set_rgb_color(&sl_simple_rgb_pwm_led_rgb_led0, red, green, blue);
-    }
+         if (onOff) {
+           // ON : allumer la LED
+           uint16_t red = 65535;
+           uint16_t green = 0;
+           uint16_t blue = 65535;
+           sl_led_set_rgb_color(&sl_simple_rgb_pwm_led_rgb_led0, red, green, blue);
+           sl_led_turn_on((sl_led_t *)&sl_simple_rgb_pwm_led_rgb_led0);
+         } else {
+           // OFF : éteindre la LED
+           sl_led_turn_off((sl_led_t *)&sl_simple_rgb_pwm_led_rgb_led0);
+         }
+       } else {
+         // Ici seulement en cas d’erreur de lecture
+         // (par ex. log ou clignotement d’erreur)
+         sl_led_toggle(&sl_simple_rgb_pwm_led_rgb_led0);
+       }
   }
 }
 
@@ -132,6 +139,9 @@ void emberAfMainInitCallback(void)
 
 
   //init led and buttons in autogen
+
+  GPIO_PinModeSet(gpioPortJ, 14, gpioModePushPull, 1);
+  GPIO_PinModeSet(gpioPortI, 0, gpioModePushPull, 1);
 
   sl_led_turn_off(&sl_led_led0);
   sl_led_turn_off(&sl_led_led1);
@@ -161,8 +171,6 @@ void sl_button_on_change(const sl_button_t *handle)
        }*/
    }
    if (handle == &sl_button_btn1) {
-       GPIO_PinModeSet(gpioPortJ, 14, gpioModePushPull, 1);
-       GPIO_PinModeSet(gpioPortI, 0, gpioModePushPull, 1);
        sl_led_toggle(&sl_simple_rgb_pwm_led_rgb_led0);
    }
 }
@@ -170,21 +178,11 @@ void sl_button_on_change(const sl_button_t *handle)
 
 void emberAfStackStatusCallback(EmberStatus status)
 {
-  // Joined / network up
-  //if (status == EMBER_NETWORK_UP) {
-    // Stop pairing indication: red LED off
+
     sl_led_turn_off(&sl_led_led0);
 
-    // Indicate network OK: green LED on
     sl_led_turn_on(&sl_led_led1);
-  //} else {
-    // Not joined / network down: green LED off
-    sl_led_turn_off(&sl_led_led1);
 
-    // Optionally indicate “not joined” with red LED
-    // (steady on or start your blinking event here)
-    // sl_led_turn_on(&sl_led_led0);
-  //}
 }
 
 
