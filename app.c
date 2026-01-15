@@ -32,8 +32,11 @@ sl_zigbee_event_set_active;
 
 emberAfStackStatusCallback;*/
 
-extern sl_led_t sl_led_led0; // LED_RED :contentReference[oaicite:7]{index=7}
-extern sl_led_t sl_led_led1; // Souvent LED verte, à vérifier dans ton projet
+extern const sl_led_t sl_led_led0; // LED_RED :contentReference[oaicite:7]{index=7}
+extern const sl_led_t sl_led_led1; // Souvent LED verte, à vérifier dans ton projet
+
+//extern const sl_led_pwm_rgb_t sl_led_pwm_rgb; // Exemple: instance RGB
+
 
 
 /** @brief Complete network steering.
@@ -72,12 +75,22 @@ void emberAfRadioNeedsCalibratingCallback(void)
 
 void emberAfMainInitCallback(void)
 {
+  //init led
+  sl_led_init(&sl_led_led0);
+  sl_led_init(&sl_led_led1);
+
+  sl_led_turn_on(&sl_led_led0);
+  sl_led_turn_on(&sl_led_led1);
+
+
 }
 
 void sl_button_on_change(const sl_button_t *handle)
 {
 }
 
+
+
 //sl_led_turn_xxx
 //sl_led_set_rgb_color
-emberLeaveNetwork
+//emberLeaveNetwork
