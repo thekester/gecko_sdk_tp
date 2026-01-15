@@ -24,42 +24,29 @@
 
 #define LIGHT_ENDPOINT                         1
 
-// Zigbee Cluster Library: On/Off cluster = 0x0006, attribut OnOff = 0x0000
-//#define ZCL_ON_OFF_CLUSTER_ID                  0x0006
-//#define ZCL_ON_OFF_ATTRIBUTE_ID                0x0000
 
-//GPIO_PinModeSet;
-
-
-/*emberAfPluginNetworkSteeringStart;
-
-GPIO_PinModeSet;
-
-//static sl_zigbee_event_t xxx;
-sl_zigbee_af_isr_event_init;
-sl_zigbee_event_set_active;
-
-emberAfStackStatusCallback;*/
-
-
-extern const sl_led_t sl_led_led0; // LED_RED :contentReference[oaicite:7]{index=7}
-extern const sl_led_t sl_led_led1; // Souvent LED verte
-
-extern const sl_button_t sl_button_btn0;
-extern const sl_button_t sl_button_btn1;
+// led 0LED_RED :contentReference[oaicite:7]{index=7}
+// LED verte
 
 static sl_zigbee_event_t g_app_event;
 static sl_zigbee_event_t g_app_isr_event;
 
-//check LedBlinking
+static sl_zigbee_event_t ledBlinkEvent;
+
+void app_start_join(void)
+{
+  //(void) sl_zigbee_af_network_steering_start(); //emberAfPluginNetworkSteeringStart
+  emberAfPluginNetworkSteeringStart();
+}
 
 
-// ---------- Etat applicatif ----------
-static volatile bool g_toggle_requested = false;
-static volatile bool g_commission_requested = false;
+static void ledBlinkEventHandler(sl_zigbee_event_t *event)
+{
+  sl_led_toggle(&sl_led_led0);  // ou sl_led_led1 selon ta carte
+  app_start_join();
 
+}
 
-//extern const sl_led_pwm_rgb_t sl_led_pwm_rgb; // Exemple: instance RGB
 
 
 /** @brief Complete network steering.
@@ -84,8 +71,52 @@ void emberAfPluginNetworkSteeringCompleteCallback(EmberStatus status,
                                                   uint8_t joinAttempts,
                                                   uint8_t finalState)
 {
+  //Appairement au Zigbee
   sl_zigbee_app_debug_println("%s network %s: 0x%02X", "Join", "complete", status);
+  // status == EMBER_SUCCESS means joined successfully
+  if (status == EMBER_SUCCESS) {
+
+      // Joined a Zigbee network successfully -> turn LED1 on
+      sl_led_turn_on(&sl_led_led1);
+      sl_led_turn_off(&sl_led_led0);
+
+    }
 }
+
+void emberAfPostAttributeChangeCallback(uint8_t endpoint,
+                                        EmberAfClusterId clusterId,
+                                        EmberAfAttributeId attributeId,
+                                        uint8_t mask,
+                                        uint16_t manufacturerCode,
+                                        uint8_t type,
+                                        uint8_t size,
+                                        uint8_t *value)
+{
+  if (clusterId == ZCL_ON_OFF_CLUSTER_ID
+      && attributeId == ZCL_ON_OFF_ATTRIBUTE_ID
+      && mask == CLUSTER_MASK_SERVER) {
+    bool onOff;
+    EmberAfStatus readStatus;
+
+    readStatus = emberAfReadServerAttribute(endpoint,
+                                            ZCL_ON_OFF_CLUSTER_ID,
+                                            ZCL_ON_OFF_ATTRIBUTE_ID,
+                                            (uint8_t *)&onOff,
+                                            sizeof(onOff));
+
+    if (readStatus == EMBER_ZCL_STATUS_SUCCESS) {
+      // use onOff to control hardware, e.g. LEDs
+      // GPIO_PinOutSet / GPIO_PinOutClear or board-specific LED API
+        sl_simple_rgb_pwm_led_turn_on(&sl_simple_rgb_pwm_led_rgb_led0);
+        //https://docs.silabs.com/gecko-platform/latest/platform-driver/simple-rgb-pwm-led
+        uint16_t red = 65535; // max red
+        uint16_t green = 0; // no green
+        uint16_t blue = 65535; // max blue
+        sl_led_set_rgb_color(&sl_simple_rgb_pwm_led_rgb_led0, red, green, blue);
+    }
+  }
+}
+
 
 /** @brief
  *
@@ -99,38 +130,16 @@ void emberAfRadioNeedsCalibratingCallback(void)
 void emberAfMainInitCallback(void)
 {
 
-  sl_zigbee_af_event_init(&g_app_event, my_event_handler);
-  sl_zigbee_af_isr_event_init(&my_isr_event, my_isr_event_handler);
-  sl_zigbee_af_event_set_active(&g_app_event);
 
-  //init led
-  sl_led_init(&sl_led_led0);
-  sl_led_init(&sl_led_led1);
-
-  //sl_led_turn_on(&sl_led_led0);
-  //sl_led_turn_on(&sl_led_led1);
+  //init led and buttons in autogen
 
   sl_led_turn_off(&sl_led_led0);
   sl_led_turn_off(&sl_led_led1);
 
-
-  sl_button_init(&sl_button_btn0);
-  sl_button_init(&sl_button_btn1);
-
+  //pas de event init sans isr sinon on peut pas gérer l'interruption
+  sl_zigbee_af_isr_event_init(&ledBlinkEvent, ledBlinkEventHandler);
 
 
-}
-
-
-// ---------- Helpers LEDs ----------
-static void set_pairing_led(bool pairing)
-{
-  // LED rouge: appairage en cours
-  if (pairing) {
-    sl_led_turn_on(&sl_led_led0);
-  } else {
-    sl_led_turn_off(&sl_led_led0);
-  }
 }
 
 
@@ -142,33 +151,41 @@ void sl_button_on_change(const sl_button_t *handle)
 
    // Adapte les handles: souvent BTN0 = commissioning, BTN1 = On/Off
    if (handle == &sl_button_btn0) {
-       g_commission_requested = true;
-       sl_zigbee_event_set_active(&g_app_event);
-       while(1){
+       sl_zigbee_event_set_active(&ledBlinkEvent);
+
+
+       /*while(status != EMBER_SUCCESS){
+           app_start_join();
            sl_led_toggle(&sl_led_led0);
            for(volatile int i=0; i<1000000;i++); //simple delay
-       }
+       }*/
    }
-   else if (handle == &sl_button_btn1) {
-      g_toggle_requested = true;
-      sl_zigbee_event_set_active(&g_app_event);
-     }
+   if (handle == &sl_button_btn1) {
+       GPIO_PinModeSet(gpioPortJ, 14, gpioModePushPull, 1);
+       GPIO_PinModeSet(gpioPortI, 0, gpioModePushPull, 1);
+       sl_led_toggle(&sl_simple_rgb_pwm_led_rgb_led0);
+   }
 }
 
-// Suivi réseau: LEDs rouge/verte
+
 void emberAfStackStatusCallback(EmberStatus status)
 {
-  // Mise à jour LED verte selon connexion réseau
-  /*
-  set_network_led(is_joined_network());
+  // Joined / network up
+  //if (status == EMBER_NETWORK_UP) {
+    // Stop pairing indication: red LED off
+    sl_led_turn_off(&sl_led_led0);
 
-  // Si on vient de rejoindre, on coupe l'indication appairage
-  if (is_joined_network()) {
-    set_pairing_led(false);
-  }
-  */
+    // Indicate network OK: green LED on
+    sl_led_turn_on(&sl_led_led1);
+  //} else {
+    // Not joined / network down: green LED off
+    sl_led_turn_off(&sl_led_led1);
+
+    // Optionally indicate “not joined” with red LED
+    // (steady on or start your blinking event here)
+    // sl_led_turn_on(&sl_led_led0);
+  //}
 }
-
 
 
 
