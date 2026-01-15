@@ -21,8 +21,17 @@
 #include "sl_simple_rgb_pwm_led_instances.h"
 #include "pin_config.h"
 #include "network-steering.h"
+
+#define LIGHT_ENDPOINT                         1
+
+// Zigbee Cluster Library: On/Off cluster = 0x0006, attribut OnOff = 0x0000
+//#define ZCL_ON_OFF_CLUSTER_ID                  0x0006
+//#define ZCL_ON_OFF_ATTRIBUTE_ID                0x0000
+
+//GPIO_PinModeSet;
+
+
 /*emberAfPluginNetworkSteeringStart;
-emberAfPluginNetworkSteeringCompleteCallback;
 
 GPIO_PinModeSet;
 
@@ -33,7 +42,11 @@ sl_zigbee_event_set_active;
 emberAfStackStatusCallback;*/
 
 extern const sl_led_t sl_led_led0; // LED_RED :contentReference[oaicite:7]{index=7}
-extern const sl_led_t sl_led_led1; // Souvent LED verte, à vérifier dans ton projet
+extern const sl_led_t sl_led_led1; // Souvent LED verte
+
+extern const sl_button_t sl_button_btn0;
+extern const sl_button_t sl_button_btn1;
+
 
 //extern const sl_led_pwm_rgb_t sl_led_pwm_rgb; // Exemple: instance RGB
 
@@ -79,15 +92,57 @@ void emberAfMainInitCallback(void)
   sl_led_init(&sl_led_led0);
   sl_led_init(&sl_led_led1);
 
-  sl_led_turn_on(&sl_led_led0);
-  sl_led_turn_on(&sl_led_led1);
+  //sl_led_turn_on(&sl_led_led0);
+  //sl_led_turn_on(&sl_led_led1);
+
+  //sl_led_turn_off(&sl_led_led0);
+  //sl_led_turn_off(&sl_led_led1);
+
+
+  sl_button_init(&sl_button_btn0);
+  sl_button_init(&sl_button_btn1);
+
 
 
 }
 
 void sl_button_on_change(const sl_button_t *handle)
 {
+  if (!sl_button_get_state(handle)) {
+     return; // on ne traite que l'appui (pas le relâchement)
+   }
+
+  // Adapte les handles: souvent BTN0 = commissioning, BTN1 = On/Off
+  /*if (handle == &sl_button_btn0) {
+   g_commission_requested = true;
+   sl_zigbee_event_set_active(&g_app_event);
+  } else if (handle == &sl_button_btn1) {
+   g_toggle_requested = true;
+   sl_zigbee_event_set_active(&g_app_event);
+  }*/
+
+
+   // Adapte les handles: souvent BTN0 = commissioning, BTN1 = On/Off
+   if (handle == &sl_button_btn1) {
+       sl_led_turn_on(&sl_led_led0);
+       sl_led_turn_on(&sl_led_led1);
+   }
 }
+
+// Suivi réseau: LEDs rouge/verte
+void emberAfStackStatusCallback(EmberStatus status)
+{
+  // Mise à jour LED verte selon connexion réseau
+  /*
+  set_network_led(is_joined_network());
+
+  // Si on vient de rejoindre, on coupe l'indication appairage
+  if (is_joined_network()) {
+    set_pairing_led(false);
+  }
+  */
+}
+
 
 
 
