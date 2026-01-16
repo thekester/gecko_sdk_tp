@@ -1,2 +1,0 @@
-Bluetooth Mesh SDK 6.1.5
-- Underlying platform changes only. 
