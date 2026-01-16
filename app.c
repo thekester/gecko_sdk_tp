@@ -25,24 +25,22 @@
 #define LIGHT_ENDPOINT                         1
 
 
-// led 0LED_RED :contentReference[oaicite:7]{index=7}
-// LED verte
-
-static sl_zigbee_event_t g_app_event;
-static sl_zigbee_event_t g_app_isr_event;
+// led 0 pour la LED_RED
+// LED 1 pour la verte
 
 static sl_zigbee_event_t ledBlinkEvent;
 
 void app_start_join(void)
 {
-  //(void) sl_zigbee_af_network_steering_start(); //emberAfPluginNetworkSteeringStart
   emberAfPluginNetworkSteeringStart();
 }
 
 
+//remarque : nous avions pris l'initiative de faire blinker la LED cependant après concertation avec le client
+//il faut juste allumer la LED en rouge tant que l'appreil est en cours d'appairmeent au réseau Zigbee
 static void ledBlinkEventHandler(sl_zigbee_event_t *event)
 {
-  sl_led_toggle(&sl_led_led0);  // ou sl_led_led1 selon ta carte
+  sl_led_toggle(&sl_led_led0);
   app_start_join();
 
 }
@@ -163,12 +161,6 @@ void sl_button_on_change(const sl_button_t *handle)
    if (handle == &sl_button_btn0) {
        sl_zigbee_event_set_active(&ledBlinkEvent);
 
-
-       /*while(status != EMBER_SUCCESS){
-           app_start_join();
-           sl_led_toggle(&sl_led_led0);
-           for(volatile int i=0; i<1000000;i++); //simple delay
-       }*/
    }
    if (handle == &sl_button_btn1) {
        sl_led_toggle(&sl_simple_rgb_pwm_led_rgb_led0);
@@ -184,9 +176,3 @@ void emberAfStackStatusCallback(EmberStatus status)
     sl_led_turn_on(&sl_led_led1);
 
 }
-
-
-
-//sl_led_turn_xxx
-//sl_led_set_rgb_color
-//emberLeaveNetwork
